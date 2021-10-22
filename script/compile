@@ -1,4 +1,5 @@
-#!/usr/bin/env bash
+#!/usr/bin/env nix-shell
+#!nix-shell shell.nix -i bash
 
 set -eou pipefail
 
@@ -27,10 +28,10 @@ export JAVA_HOME=$GRAALVM_HOME
 export PATH=$GRAALVM_HOME/bin:$PATH
 
 rm -rf resources/*.class
-# SVM_JAR=$(find -L "$GRAALVM_HOME" | grep svm.jar)
-# "$GRAALVM_HOME/bin/javac" -cp "$SVM_JAR" resources/CutOffCoreServicesDependencies.java
-# "$GRAALVM_HOME/bin/javac" -cp "$SVM_JAR" resources/CutOffSunAwtWwwContentAudioAiff.java
-# "$GRAALVM_HOME/bin/javac" -cp "$SVM_JAR" resources/CutOffMisc.java
+SVM_JAR=$(find -L "$GRAALVM_HOME" | grep svm.jar)
+"$GRAALVM_HOME/bin/javac" -cp "$SVM_JAR" resources/CutOffCoreServicesDependencies.java
+"$GRAALVM_HOME/bin/javac" -cp "$SVM_JAR" resources/CutOffSunAwtWwwContentAudioAiff.java
+"$GRAALVM_HOME/bin/javac" -cp "$SVM_JAR" resources/CutOffMisc.java
 if [ -z "$BABASHKA_JAR" ]; then
     lein with-profiles +reflection,+native-image "do" run
     lein "do" clean, uberjar
@@ -53,8 +54,8 @@ args=("-jar" "$BABASHKA_JAR"
       "--native-image-info"
       "$BABASHKA_XMX")
 
-BABASHKA_STATIC=${BABASHKA_STATIC:-}
-BABASHKA_MUSL=${BABASHKA_MUSL:-}
+BABASHKA_STATIC=${BABASHKA_STATIC:-true}
+BABASHKA_MUSL=${BABASHKA_MUSL:-true}
 
 if [ "$BABASHKA_STATIC" = "true" ]; then
     args+=("--static")
@@ -102,4 +103,7 @@ then
     export BABASHKA_FEATURE_LOGGING="${BABASHKA_FEATURE_LOGGING:-false}"
 fi
 
-"$GRAALVM_HOME/bin/native-image" "${args[@]}"
+nix run \
+    --experimental-features 'nix-command flakes' \
+    "github:thiagokokada/graalvm-nix#11/musl/latest/native-image" \
+    -- "${args[@]}"
